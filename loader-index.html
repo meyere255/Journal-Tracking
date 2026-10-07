@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#EDF0F3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Execution Log">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<title>Execution Log</title>
+<style>
+  html,body{margin:0;background:#EDF0F3;font-family:ui-monospace,Menlo,monospace;color:#6E7C8C}
+  .m{font-size:11px;letter-spacing:.14em;text-align:center;padding:60px 20px}
+  a{color:#1D4E89}
+</style>
+</head>
+<body>
+<div class="m" id="m">LOADING…</div>
+<script>
+// Opens the newest tracker-*.html in this repo. To update the app, just upload a new tracker-YYYY-MM-DD.html file.
+(async () => {
+  const KEY = "loader:lastFile", msg = t => (document.getElementById("m").innerHTML = t);
+  const host = location.hostname, owner = host.split(".")[0];
+  const seg = location.pathname.split("/").filter(Boolean);
+  const repo = host.endsWith(".github.io") && seg.length && !seg[0].endsWith(".html") ? seg[0] : `${owner}.github.io`;
+  const base = location.pathname.replace(/[^/]*$/, "");
+  const key = n => { const m = n.match(/^tracker-(\d{4})-?(\d{2})-?(\d{2})(?:-(\d+))?/); return m ? `${m[1]}${m[2]}${m[3]}-${String(m[4] || 0).padStart(3, "0")}` : null; };
+  const live = async f => { try { const r = await fetch(base + encodeURIComponent(f) + "?t=" + Date.now(), { method: "HEAD", cache: "no-store" }); return r.ok; } catch { return false; } };
+  const go = f => { try { localStorage.setItem(KEY, f); } catch {} location.replace(base + encodeURIComponent(f)); };
+
+  let files = [];
+  try {
+    const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/?t=${Date.now()}`, { cache: "no-store" });
+    if (r.ok) files = (await r.json()).filter(f => f.type === "file" && /\.html$/.test(f.name) && key(f.name)).map(f => f.name);
+  } catch {}
+  files.sort((a, b) => key(b).localeCompare(key(a)) || a.length - b.length);
+
+  for (const f of files.slice(0, 4)) if (await live(f)) return go(f);   // newest one GitHub Pages has finished publishing
+  let last = null; try { last = localStorage.getItem(KEY); } catch {}
+  if (last && await live(last)) return go(last);
+  msg("NO TRACKER FILE FOUND.<br><br>Upload a file named like<br>tracker-2026-10-07.html<br>to the repo, then reopen.");
+})();
+</script>
+</body>
+</html>
